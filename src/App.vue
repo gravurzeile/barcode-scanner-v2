@@ -1,14 +1,22 @@
 <script setup lang="ts">
-import { ref } from "vue";
+import { onMounted, ref } from "vue";
 import { invoke } from "@tauri-apps/api/core";
+import { listen } from '@tauri-apps/api/event';
 
 const greetMsg = ref("");
 const name = ref("");
+const barcode = ref('');
 
 async function greet() {
   // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
   greetMsg.value = await invoke("greet", { name: name.value });
 }
+
+onMounted(() => {
+      listen('barcode-scanned', (event) => {
+        barcode.value = event.payload as string;
+      });
+    });
 </script>
 
 <template>
@@ -35,7 +43,7 @@ async function greet() {
     <p>{{ greetMsg }}</p>
 
     <h3>Gescannter Barcode:</h3>
-    
+    <p>Gescannt: {{ barcode }}</p>
   </main>
 </template>
 

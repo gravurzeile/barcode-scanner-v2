@@ -3,5 +3,4 @@
 
 fn main() {
     barcode_scanner_ui_lib::run();
-    barcode_scanner_ui_lib::looper().unwrap();
 }

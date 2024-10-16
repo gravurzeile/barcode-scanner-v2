@@ -1,5 +1,8 @@
-// let vendorId = 0x0483 // Beispiel Vendor-ID
-// let productId = 0x5750 // Beispiel Product-ID
-// sudo evtest --grab /dev/input/event16
+# Barcode-Scanner V2
+Kann momentan nur auf VendorId 0x0483 und productId bzw. auf Lixin BCST-60 verwwendet werden
 
-sudo env "PATH=$PATH" cargo run
+# Getestet auf
+Fedora 40 Workstation
+
+# Dev Linux
+sudo -E env PATH=$PATH pnpm tauri dev

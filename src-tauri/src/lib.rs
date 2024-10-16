@@ -1,6 +1,7 @@
-// Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
-use evdev::{Device, InputEventKind};
 use std::io::Result;
+
+use evdev::{Device, InputEventKind};
+use tauri::Emitter;
 
 #[tauri::command]
 fn greet(name: &str) -> String {
@@ -12,40 +13,24 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
         .invoke_handler(tauri::generate_handler![greet])
+        .setup(|app| {
+            let handle = app.handle().clone();
+            std::thread::spawn(move || {
+                looper(handle).expect("Failed to start looper");
+            });
+            Ok(())
+        })
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
 
-pub fn looper() -> Result<()> {
-    let device_name = "Lixin BCST-60 Keyboard";
-
-    // Durchsuche die verfügbaren Eingabegeräte aus /dev/input/event*
-    let event_list = glob::glob("/dev/input/event*").map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?;
-    let mut device = event_list
-        .filter_map(|entry| {
-            let path = entry.ok()?;
-            let device = Device::open(&path).ok()?;
-            if device.name().unwrap_or("Unknown device").contains(device_name) {
-                return Some(device);
-            }
-            None
-        })
-        .next()
-        .ok_or_else(|| std::io::Error::new(std::io::ErrorKind::NotFound, "No device found"))?;
-
-    // Gerät exklusiv greifen
-    device.grab()?;
-
-    // print all infos about the device
-    println!("Gerät: {}", device.name().unwrap_or("Unknown device"));
-
+fn loop_device(mut device: Device, handle: tauri::AppHandle) {
     let mut left_ctrl_key = false;
     let mut home_key = false;
     let mut enter_key = false;
     let mut tempkey = String::new();
     let mut barcode = String::new();
-
-    // Endlosschleife, um kontinuierlich neue Events zu lesen
+    
     loop {
         let events = device.fetch_events().unwrap();
 
@@ -71,6 +56,7 @@ pub fn looper() -> Result<()> {
                     if home_key && newkey == "ENTER" {
                         enter_key = true;
                         barcode = tempkey.clone();
+                        handle.emit("barcode-scanned", barcode.clone()).unwrap();
                     }
 
                     if home_key && !enter_key {
@@ -86,3 +72,39 @@ pub fn looper() -> Result<()> {
         println!("barcode: {}", barcode);
     }
 }
+
+fn looper(handle: tauri::AppHandle) -> Result<()> {
+
+
+    let device_name = "Lixin BCST-60 Keyboard";
+    
+    // Endlosschleife, um kontinuierlich neue Events zu lesen
+    loop {
+        // Durchsuche die verfügbaren Eingabegeräte aus /dev/input/event*
+        let event_list = glob::glob("/dev/input/event*").map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?;
+        let device = event_list
+            .filter_map(|entry| {
+                let path = entry.ok()?;
+                let device = Device::open(&path).ok()?;
+                if device.name().unwrap_or("Unknown device").contains(device_name) {
+                    return Some(device);
+                }
+                None
+            })
+            .next();
+
+        if let Some(mut device) = device {
+            // Gerät exklusiv greifen
+            device.grab()?;
+            // print all infos about the device
+            println!("Gerät: {}", device.name().unwrap_or("Unknown device"));
+            loop_device(device, handle.clone());
+        } else {
+            println!("Kein Gerät gefunden, warte auf ein Gerät...");
+            std::thread::sleep(std::time::Duration::from_secs(5));
+        }
+    }
+}
+
+
+
