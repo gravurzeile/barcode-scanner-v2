@@ -1,0 +1,9 @@
+[package]
+name = "barcode-scanner-client-v2"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+evdev = "0.12.2"
+glob = "0.3.1"
+keycode = "0.4.0"
